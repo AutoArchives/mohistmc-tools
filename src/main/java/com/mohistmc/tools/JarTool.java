@@ -44,10 +44,10 @@ public record JarTool(Class<?> classz) {
 
     public static void restartServer(List<String> cmd, boolean shutdown) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.inheritIO().start().waitFor();
-        Thread.sleep(2000);
+        pb.inheritIO().start();
+        Thread.sleep(3000L);
         if (shutdown) {
-            System.exit(0);
+            Runtime.getRuntime().halt(0);
         }
     }
 

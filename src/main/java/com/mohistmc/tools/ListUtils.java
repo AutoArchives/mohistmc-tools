@@ -9,17 +9,22 @@ import java.util.List;
  */
 public class ListUtils {
 
-    public static void isDuplicate(List<String> list, String key) {
+    /**
+     * 仅当 key 不存在时才加入 list（去重添加）。
+     */
+    public static void addIfAbsent(List<String> list, String key) {
         if (!list.contains(key)) {
             list.add(key);
         }
     }
 
     /**
-     * Whether the value in list 1 exists in list 2
+     * 判断 list1 中的元素是否全部存在于 list2 中（且两者大小一致）。
      */
-    public static boolean is(List<Object> list1, List<Object> list2) {
-        if (list1.size() != list2.size()) return false;
+    public static boolean containsAll(List<Object> list1, List<Object> list2) {
+        if (list1.size() != list2.size()) {
+            return false;
+        }
         return new HashSet<>(list2).containsAll(list1);
     }
 }

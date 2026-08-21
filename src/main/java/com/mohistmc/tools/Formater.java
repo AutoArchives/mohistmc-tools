@@ -1,4 +1,3 @@
-
 package com.mohistmc.tools;
 
 import java.text.DecimalFormat;
@@ -11,30 +10,27 @@ import java.util.Locale;
  */
 public class Formater {
 
-    public static String formatValue(double value) {
-        boolean isWholeNumber = value == Math.round(value);
+    private static DecimalFormat decimalFormat(String pattern) {
         DecimalFormatSymbols formatSymbols = new DecimalFormatSymbols(Locale.ENGLISH);
         formatSymbols.setDecimalSeparator('.');
+        return new DecimalFormat(pattern, formatSymbols);
+    }
+
+    public static String formatValue(double value) {
+        boolean isWholeNumber = value == Math.round(value);
         String pattern = isWholeNumber ? "######.###" : "##,###0.00";
-        DecimalFormat df = new DecimalFormat(pattern, formatSymbols);
-        return df.format(value);
+        return decimalFormat(pattern).format(value);
     }
 
     public static String formatDecimal(double value) {
         boolean isWholeNumber = value == Math.round(value);
-        DecimalFormatSymbols formatSymbols = new DecimalFormatSymbols(Locale.ENGLISH);
-        formatSymbols.setDecimalSeparator('.');
         String pattern = isWholeNumber ? "######.###" : "#####0.00";
-        DecimalFormat df = new DecimalFormat(pattern, formatSymbols);
-        return df.format(value);
+        return decimalFormat(pattern).format(value);
     }
 
     public static String formatInteger(double value) {
         boolean isWholeNumber = value == Math.round(value);
-        DecimalFormatSymbols formatSymbols = new DecimalFormatSymbols(Locale.ENGLISH);
-        formatSymbols.setDecimalSeparator('.');
         String pattern = isWholeNumber ? "#########" : "#####0";
-        DecimalFormat df = new DecimalFormat(pattern, formatSymbols);
-        return df.format(value);
+        return decimalFormat(pattern).format(value);
     }
 }

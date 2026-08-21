@@ -15,13 +15,16 @@ public class OSUtil {
                 os = OS.MAC;
             } else if (operSys.contains("sunos")) {
                 os = OS.SOLARIS;
+            } else {
+                // 未识别时给出明确默认值，避免调用方拿到 null 触发 NPE
+                os = OS.UNKNOWN;
             }
         }
         return os;
     }
 
     public enum OS {
-        WINDOWS, LINUX, MAC, SOLARIS;
+        WINDOWS, LINUX, MAC, SOLARIS, UNKNOWN;
 
         public boolean isWindows() {
             return this == WINDOWS;

@@ -42,15 +42,6 @@ public record JarTool(Class<?> classz) {
         }
     }
 
-    public static void restartServer(List<String> cmd, boolean shutdown) throws Exception {
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.inheritIO().start();
-        Thread.sleep(3000L);
-        if (shutdown) {
-            Runtime.getRuntime().halt(0);
-        }
-    }
-
     public String getJarPath() {
         File file = getFile();
         if (file == null) {

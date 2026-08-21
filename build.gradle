@@ -4,15 +4,15 @@ plugins {
 }
 
 group = 'com.mohistmc'
-version = '0.6.3'
+version = '0.7'
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.warnings = false
+    // 保留编译器警告以便发现潜在问题；如确需静默，可按文件局部抑制而非全局关闭
 }
 
 repositories {

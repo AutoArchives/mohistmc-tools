@@ -3,10 +3,14 @@ package com.mohistmc.tools;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 /**
@@ -16,14 +20,18 @@ import java.util.jar.JarFile;
 public class FileUtils {
 
     public static List<String> readFileFromJar(ClassLoader classLoader, String path) {
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(classLoader.getResourceAsStream(path)))) {
+        InputStream in = classLoader.getResourceAsStream(path);
+        if (in == null) {
+            return Collections.emptyList();
+        }
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             List<String> lines = new ArrayList<>();
             String line;
             while ((line = br.readLine()) != null) {
                 lines.add(line);
             }
             return lines;
-        } catch (Exception e) {
+        } catch (IOException e) {
             return Collections.emptyList();
         }
     }
@@ -41,23 +49,24 @@ public class FileUtils {
     }
 
     public static boolean fileExists(File f, String fName) {
-        if (!f.exists()) return false;
-        try {
-            JarFile jf = new JarFile(f);
-            if (jf.getJarEntry(fName) != null) {
-                jf.close();
-                return true;
-            }
-        } catch (Exception e) {
+        if (!f.exists()) {
             return false;
         }
-        return false;
+        // JarFile 必须关闭，否则句柄泄漏
+        try (JarFile jf = new JarFile(f)) {
+            JarEntry entry = jf.getJarEntry(fName);
+            return entry != null;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public static void fileWriterMethod(String filepath, String content) {
         try (FileWriter fileWriter = new FileWriter(filepath)) {
             fileWriter.append(content);
-        } catch (Exception ignored) {
+        } catch (IOException e) {
+            // 原实现静默吞掉异常，至少记录到标准错误，便于排查
+            e.printStackTrace();
         }
     }
 }

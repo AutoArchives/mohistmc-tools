@@ -14,6 +14,8 @@ import java.lang.management.ManagementFactory;
  */
 public class StatsUtils {
 
+    private static final int BAR_WIDTH = 70;
+
     public static long freeMemory() {
         return Runtime.getRuntime().freeMemory();
     }
@@ -27,27 +29,13 @@ public class StatsUtils {
     }
 
     public static double getMemoryUsage() {
-        long used_memory = totalMemory() - freeMemory();
-        double percent = (double)(totalMemory() / 100L);
-        return used_memory / percent;
+        long usedMemory = totalMemory() - freeMemory();
+        // 注意：必须先转 double 再除法，避免整型截断（原实现 (double)(x/100L) 会得到错误结果）
+        return usedMemory / (totalMemory() * 0.01);
     }
 
     public static String getMemoryUsageBar() {
-        StringBuilder usagebar = new StringBuilder();
-        double round_usage = getMemoryUsage() * 0.7;
-        int usage = (int)Math.ceil(round_usage);
-        for (int i = 0; i < 70; ++i) {
-            if (i < usage) {
-                usagebar.append("§c▬");
-            }
-            else if (usage == i) {
-                usagebar.append("§6▬");
-            }
-            else {
-                usagebar.append("§a▬");
-            }
-        }
-        return usagebar.toString();
+        return buildUsageBar(getMemoryUsage());
     }
 
     public static double LoadAverange() {
@@ -66,30 +54,16 @@ public class StatsUtils {
         if (list.isEmpty()) {
             return Double.NaN;
         }
-        Attribute att = (Attribute) list.get(0);
-        Double value = (Double)att.getValue();
+        Attribute att = (Attribute) list.getFirst();
+        Double value = (Double) att.getValue();
         if (value == -1.0) {
             return Double.NaN;
         }
-        return (int)(value * 1000.0) / 10.0;
+        return (int) (value * 1000.0) / 10.0;
     }
 
     public static String getCPUUsageBar() throws Exception {
-        StringBuilder usagebar = new StringBuilder();
-        double round_usage = getProcessCpuLoad() * 0.7;
-        int usage = (int)Math.ceil(round_usage);
-        for (int i = 0; i < 70; ++i) {
-            if (i < usage) {
-                usagebar.append("§c▬");
-            }
-            else if (usage == i) {
-                usagebar.append("§6▬");
-            }
-            else {
-                usagebar.append("§a▬");
-            }
-        }
-        return usagebar.toString();
+        return buildUsageBar(getProcessCpuLoad());
     }
 
     public static long totalDisk() {
@@ -109,23 +83,30 @@ public class StatsUtils {
 
     public static double getDiskUsage() {
         long total = totalDisk();
-        if (total == 0) return 0.0;
-        long used_memory = total - freeDisk();
-        return (used_memory * 100.0) / total;
+        if (total == 0) {
+            return 0.0;
+        }
+        long used = total - freeDisk();
+        return (used * 100.0) / total;
     }
 
     public static String getDiskUsageBar() {
-        StringBuilder usagebar = new StringBuilder();
-        double round_usage = getDiskUsage() * 0.7;
-        int usage = (int)Math.ceil(round_usage);
-        for (int i = 0; i < 70; ++i) {
+        return buildUsageBar(getDiskUsage());
+    }
+
+    /**
+     * 通用用量条构建：前 usage% 用红(§c)，临界点用橙(§6)，其余用绿(§a)。
+     * 重复的三段式逻辑统一在此，避免三处复制。
+     */
+    private static String buildUsageBar(double usagePercent) {
+        int usage = (int) Math.ceil(usagePercent * 0.7);
+        StringBuilder usagebar = new StringBuilder(BAR_WIDTH);
+        for (int i = 0; i < BAR_WIDTH; ++i) {
             if (i < usage) {
                 usagebar.append("§c▬");
-            }
-            else if (usage == i) {
+            } else if (usage == i) {
                 usagebar.append("§6▬");
-            }
-            else {
+            } else {
                 usagebar.append("§a▬");
             }
         }

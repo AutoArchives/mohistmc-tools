@@ -77,6 +77,11 @@ public class NumberUtil {
     }
 
     public static String getSize(int size) {
-        return (size >= 1048576) ? size / 1048576 + "MB" : ((size >= 1024) ? size / 1024 + "KB" : size + "B");
+        if (size >= 1048576) {
+            return String.format("%.2f MB", size / 1048576.0);
+        } else if (size >= 1024) {
+            return String.format("%.2f KB", size / 1024.0);
+        }
+        return size + " B";
     }
 }

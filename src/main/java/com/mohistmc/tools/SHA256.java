@@ -87,6 +87,6 @@ public class SHA256 {
      */
     @SneakyThrows
     public static boolean is(String path, String toBeCheckSum) {
-        return as(path).equals(toBeCheckSum);
+        return Objects.equals(as(path), toBeCheckSum);
     }
 }

@@ -23,6 +23,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
@@ -30,7 +31,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class ZipUtil {
-    public static void zipFolder(Path sourceFolderPath, Path zipPath) throws Exception {
+
+    public static void zipFolder(Path sourceFolderPath, Path zipPath) throws IOException {
         try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(zipPath));
              Stream<Path> paths = Files.walk(sourceFolderPath)) {
             paths.filter(path -> !Files.isDirectory(path))
@@ -41,26 +43,38 @@ public class ZipUtil {
                             Files.copy(path, zs);
                             zs.closeEntry();
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            // 包装为 RuntimeException，让调用方感知失败而非静默忽略
+                            throw new RuntimeException("Failed to zip entry: " + path, e);
                         }
                     });
         }
     }
 
-    public static void getFileContent(Object fileInPath) throws IOException {
-        BufferedReader br = null;
+    /**
+     * 读取文件 / 输入流的全部内容并以字符串返回。
+     * 支持 String 路径与 InputStream；参数为 null 时返回 null。
+     */
+    public static String getFileContent(Object fileInPath) throws IOException {
         if (fileInPath == null) {
-            return;
+            return null;
         }
-        if (fileInPath instanceof String) {
-            br = new BufferedReader(new FileReader((String) fileInPath));
-        } else if (fileInPath instanceof InputStream) {
-            br = new BufferedReader(new InputStreamReader((InputStream) fileInPath));
+        BufferedReader br;
+        if (fileInPath instanceof String s) {
+            br = new BufferedReader(new FileReader(s, StandardCharsets.UTF_8));
+        } else if (fileInPath instanceof InputStream inputStream) {
+            br = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+        } else {
+            return null;
         }
-        String line;
-        while ((line = br.readLine()) != null) {
-            System.out.println(line);
+
+        // try-with-resources 保证 BufferedReader 一定被关闭
+        try (BufferedReader reader = br) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append(System.lineSeparator());
+            }
+            return sb.toString();
         }
-        br.close();
     }
 }

@@ -2,15 +2,12 @@ package com.mohistmc.tools;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -18,6 +15,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -38,39 +36,41 @@ public class ConnectionUtil {
     }
 
     public static boolean canAccess(String urlStr) {
+        HttpURLConnection connection = null;
         try {
-            URLConnection urlConnection = getConn(urlStr);
-            if (urlConnection == null) {
+            connection = openConn(urlStr);
+            if (connection == null) {
                 return false;
             }
-            HttpURLConnection connection = (HttpURLConnection) urlConnection;
             connection.connect();
-
             int responseCode = connection.getResponseCode();
             return responseCode >= 200 && responseCode < 300;
         } catch (IOException e) {
             return false;
+        } finally {
+            disconnect(connection);
         }
     }
 
     public static Integer getCode(String urlStr) {
+        HttpURLConnection connection = null;
         try {
-            URLConnection urlConnection = getConn(urlStr);
-            if (urlConnection == null) {
+            connection = openConn(urlStr);
+            if (connection == null) {
                 return null;
             }
-            HttpURLConnection connection = (HttpURLConnection) urlConnection;
             connection.connect();
             return connection.getResponseCode();
         } catch (IOException e) {
             return null;
+        } finally {
+            disconnect(connection);
         }
     }
 
     public static URLConnection getConn(String URL) {
-        URLConnection connection;
         try {
-            connection = URI.create(URL).toURL().openConnection();
+            URLConnection connection = URI.create(URL).toURL().openConnection();
             connection.setRequestProperty("User-Agent", "MohistMC-Tools/" + Tools.version());
             return connection;
         } catch (IOException e) {
@@ -78,20 +78,53 @@ public class ConnectionUtil {
         }
     }
 
+    private static HttpURLConnection openConn(String urlStr) {
+        URLConnection connection = getConn(urlStr);
+        return connection instanceof HttpURLConnection http ? http : null;
+    }
+
+    private static void disconnect(HttpURLConnection connection) {
+        if (connection != null) {
+            connection.disconnect();
+        }
+    }
+
+    /**
+     * 打开一个 GET 连接的输入流。调用方负责关闭返回的流；
+     * 若需要在流读取完成后释放底层连接，请对底层 HttpURLConnection 调用 disconnect()。
+     */
+    public static InputStream getInputStream(String s) throws IOException {
+        URLConnection connection = getConn(s);
+        if (connection instanceof HttpURLConnection http) {
+            http.setConnectTimeout(3000);
+            http.setRequestMethod("GET");
+            if (http.getResponseCode() == 200) {
+                return http.getInputStream();
+            }
+            http.disconnect();
+        }
+        return null;
+    }
+
     public static long measureLatency(String urlString) {
+        HttpURLConnection connection = null;
         try {
             long start = System.nanoTime();
-            URLConnection urlConnection = getConn(urlString);
-            if (urlConnection == null) {
+            connection = openConn(urlString);
+            if (connection == null) {
                 return Long.MAX_VALUE;
             }
-            HttpURLConnection connection = (HttpURLConnection) urlConnection;
-
             int responseCode = connection.getResponseCode();
             long end = System.nanoTime();
+            // 网络错误也视为不可达
+            if (responseCode < 200 || responseCode >= 400) {
+                return Long.MAX_VALUE;
+            }
             return Duration.ofNanos(end - start).toMillis();
         } catch (Exception e) {
             return Long.MAX_VALUE;
+        } finally {
+            disconnect(connection);
         }
     }
 
@@ -108,13 +141,16 @@ public class ConnectionUtil {
                 .min(Comparator.comparing(LatencyResult::latency));
 
         executor.shutdown();
-
-        if (minLatencyResult.isPresent()) {
-            LatencyResult result = minLatencyResult.get();
-            return result.url;
-        } else {
-            return null;
+        try {
+            if (!executor.awaitTermination(1, TimeUnit.MINUTES)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
+
+        return minLatencyResult.map(LatencyResult::url).orElse(null);
     }
 
     public static boolean downloadFile(String URL, File f) {
@@ -123,14 +159,17 @@ public class ConnectionUtil {
             if (conn == null) {
                 return false;
             }
-            ReadableByteChannel rbc = Channels.newChannel(conn.getInputStream());
-            FileChannel fc = FileChannel.open(f.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
-
-            fc.transferFrom(rbc, 0, Long.MAX_VALUE);
-            fc.close();
-            rbc.close();
+            try (InputStream rbc = conn.getInputStream()) {
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(f)) {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = rbc.read(buffer)) != -1) {
+                        fos.write(buffer, 0, read);
+                    }
+                }
+            }
             return true;
-        } catch (IOException | NullPointerException ignored) {
+        } catch (IOException ignored) {
             return false;
         }
     }
@@ -139,6 +178,9 @@ public class ConnectionUtil {
         // 分离主机和端口（如果有）
         String[] parts = host.split(":");
         String mainPart = parts[0];
+        if (mainPart.isEmpty()) {
+            return false;
+        }
         int port = parts.length > 1 ? Integer.parseInt(parts[1]) : -1;
 
         // 验证域名规则（支持国际化域名IDN）
